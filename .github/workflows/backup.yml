@@ -1,0 +1,50 @@
+name: Backup Fork
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 每天午夜運行一次
+  workflow_dispatch:  # 允許手動觸發
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # 獲取所有歷史記錄和標籤
+
+      - name: Add upstream repository
+        run: |
+          git remote add upstream https://github.com/Gourieff/sd-webui-reactor.git
+          git fetch upstream
+
+      - name: Merge upstream changes
+        run: |
+          git merge upstream/main || echo "No changes to merge or merge conflict"
+
+      - name: Configure Git
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+
+      - name: Commit merged changes
+        run: |
+          git commit -am "Merge upstream changes" || echo "No changes to commit"
+
+      - name: Create version tag
+        run: |
+          TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+          git tag -a "backup-$TIMESTAMP" -m "Backup on $TIMESTAMP"
+
+      - name: Push changes and tags to backup
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          git remote add backup https://$GH_TOKEN@github.com/LostSunset/sd-webui-reactor.git
+          git push backup main --tags || echo "Failed to push to backup repository"
+
+      - name: Check for errors
+        if: failure()
+        run: |
+          echo "Workflow failed. Please check the logs for more information."
