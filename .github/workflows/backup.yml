@@ -19,6 +19,18 @@ jobs:
           git remote add upstream https://github.com/Gourieff/sd-webui-reactor.git
           git fetch upstream
 
+      - name: Create pre-merge tag
+        run: |
+          TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+          git tag -a "pre-merge-$TIMESTAMP" -m "Pre-merge backup on $TIMESTAMP"
+
+      - name: Push pre-merge tag to backup
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          git remote add backup https://$GH_TOKEN@github.com/LostSunset/sd-webui-reactor.git
+          git push backup --tags || echo "Failed to push tags to backup repository"
+
       - name: Merge upstream changes
         run: |
           git merge upstream/main || echo "No changes to merge or merge conflict"
@@ -32,16 +44,15 @@ jobs:
         run: |
           git commit -am "Merge upstream changes" || echo "No changes to commit"
 
-      - name: Create version tag
+      - name: Create post-merge tag
         run: |
           TIMESTAMP=$(date +"%Y%m%d%H%M%S")
-          git tag -a "backup-$TIMESTAMP" -m "Backup on $TIMESTAMP"
+          git tag -a "post-merge-$TIMESTAMP" -m "Post-merge backup on $TIMESTAMP"
 
       - name: Push changes and tags to backup
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          git remote add backup https://$GH_TOKEN@github.com/LostSunset/sd-webui-reactor.git
           git push backup main --tags || echo "Failed to push to backup repository"
 
       - name: Check for errors
