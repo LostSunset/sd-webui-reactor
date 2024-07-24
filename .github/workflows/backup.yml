@@ -14,46 +14,44 @@ jobs:
         with:
           fetch-depth: 0  # 獲取所有歷史記錄和標籤
 
+      - name: List all branches
+        id: list_branches
+        run: |
+          git fetch --all
+          git branch -r | grep -v '\->' | grep 'upstream/' | sed 's/upstream\///' > branches.txt
+          echo "::set-output name=branches::$(cat branches.txt | tr '\n' ' ')"
+
       - name: Add upstream repository
         run: |
           git remote add upstream https://github.com/Gourieff/sd-webui-reactor.git
           git fetch upstream
 
-      - name: Create pre-merge tag
+      - name: Backup each branch
         run: |
-          TIMESTAMP=$(date +"%Y%m%d%H%M%S")
-          git tag -a "pre-merge-$TIMESTAMP" -m "Pre-merge backup on $TIMESTAMP"
-
-      - name: Push pre-merge tag to backup
+          for branch in $(echo "${{ steps.list_branches.outputs.branches }}"); do
+            git checkout $branch || git checkout -b $branch upstream/$branch
+            git merge upstream/$branch || echo "No changes to merge or merge conflict"
+            git push --tags backup $branch || echo "Failed to push $branch to backup repository"
+          done
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          git remote add backup https://$GH_TOKEN@github.com/LostSunset/sd-webui-reactor.git
-          git push backup --tags || echo "Failed to push tags to backup repository"
-
-      - name: Merge upstream changes
-        run: |
-          git merge upstream/main || echo "No changes to merge or merge conflict"
 
       - name: Configure Git
         run: |
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
 
-      - name: Commit merged changes
-        run: |
-          git commit -am "Merge upstream changes" || echo "No changes to commit"
-
-      - name: Create post-merge tag
+      - name: Create version tag
         run: |
           TIMESTAMP=$(date +"%Y%m%d%H%M%S")
-          git tag -a "post-merge-$TIMESTAMP" -m "Post-merge backup on $TIMESTAMP"
+          git tag -a "backup-$TIMESTAMP" -m "Backup on $TIMESTAMP"
 
       - name: Push changes and tags to backup
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          git push backup main --tags || echo "Failed to push to backup repository"
+          git remote add backup https://$GH_TOKEN@github.com/LostSunset/sd-webui-reactor.git
+          git push backup --tags || echo "Failed to push tags to backup repository"
 
       - name: Check for errors
         if: failure()
