@@ -7,7 +7,7 @@ on:
 
 env:
   UPSTREAM_REPO: ${{ vars.UPSTREAM_REPO || 'https://github.com/Gourieff/sd-webui-reactor.git' }}
-  MAIN_BRANCH: ${{ vars.MAIN_BRANCH || 'master' }}
+  MAIN_BRANCH: ${{ vars.MAIN_BRANCH || 'main' }}
 
 jobs:
   backup-and-sync:
